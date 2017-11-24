@@ -103,6 +103,8 @@ dispatcher(APIs) ->
                                         respond(Req, 200, [{code, ?SUCCESS}, {result, Data}]);
                                     {error, Error} ->
                                         respond(Req, 200, Error);
+                                    {partial_group_publish_error, Error} ->
+                                        respond(Req, 206, Error);
                                     {'EXIT', Reason} ->
                                         lager:error("Execute API '~s' Error: ~p", [Url, Reason]),
                                         respond(Req, 404, [])
@@ -152,6 +154,8 @@ respond(Req, 404, Data) ->
     Req:respond({404, [{"Content-Type", "text/plain"}], Data});
 respond(Req, 200, Data) ->
     Req:respond({200, [{"Content-Type", "application/json"}], to_json(Data)});
+respond(Req, 206, Data) ->
+    Req:respond({206, [{"Content-Type", "application/json"}], to_json(Data)});
 respond(Req, Code, Data) ->
     Req:respond({Code, [{"Content-Type", "text/plain"}], Data}).
 
@@ -195,6 +199,7 @@ check_params_type(Params, Args) ->
         case Type of
             int -> not is_integer(Val);
             binary -> not is_binary(Val);
+            list -> not is_list(Val);
             bool -> not is_boolean(Val)
         end
     end, Args).
@@ -226,6 +231,7 @@ api_list() ->
               <<"api/v2/routes">>,
               <<"api/v2/routes/{topic}">>,
               <<"api/v2/mqtt/publish">>,
+              <<"api/v2/mqtt/group_publish">>,
               <<"api/v2/mqtt/subscribe">>,
               <<"api/v2/mqtt/unsubscribe">>,
               <<"api/v2/nodes/{node_name}/plugins">>,

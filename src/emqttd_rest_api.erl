@@ -39,6 +39,7 @@
 -http_api({"^subscriptions/(.+?)/?$", 'GET', subscription, []}).
 
 -http_api({"^mqtt/publish?$", 'POST', publish, [{<<"topic">>, binary}]}).
+-http_api({"^mqtt/group_publish?$", 'POST', group_publish, [{<<"topics">>, list}]}).
 -http_api({"^mqtt/subscribe?$", 'POST', subscribe, [{<<"client_id">>, binary},{<<"topic">>, binary}]}).
 -http_api({"^mqtt/unsubscribe?$", 'POST', unsubscribe, [{<<"client_id">>, binary},{<<"topic">>, binary}]}).
 
@@ -83,7 +84,7 @@
 -export([session/3, session_list/3, session_list/4]).
 -export([subscription/3, subscription_list/3, subscription_list/4]).
 -export([nodes/2, node/3, brokers/2, broker/3, listeners/2, listener/3, metrics/2, metric/3, stats/2, stat/3]).
--export([publish/2, subscribe/2, unsubscribe/2]).
+-export([publish/2, group_publish/2, subscribe/2, unsubscribe/2]).
 -export([plugin_list/3, enabled/4]).
 -export([modify_config/3, modify_config/4, config_list/2, config_list/3,
          plugin_config_list/4, modify_plugin_config/4]).
@@ -337,6 +338,29 @@ publish('POST', Params) ->
         {error, Error} ->
             {error, [{code, ?ERROR2}, {message, Error}]}
     end.
+
+group_publish('POST', Params) ->
+    Topics = get_value(<<"topics">>, Params),
+    ClientId = get_value(<<"client_id">>, Params, http),
+    Payload = get_value(<<"payload">>, Params, <<>>),
+    Qos     = get_value(<<"qos">>, Params, 0),
+    Retain  = get_value(<<"retain">>, Params, false),
+    case publish_batch(Topics,{ClientId,Payload,Qos,Retain},[]) of
+        [] ->
+            {ok,[]};
+        List ->
+            {partial_group_publish_error, [{code, ?SUCCESS}, {result, List}]}
+    end.
+
+publish_batch([H|T],{C,P,Q,R},L) ->
+    case emqttd_mgmt:publish({C,H,P,Q,R}) of
+        ok ->
+            publish_batch(T,{C,P,Q,R},[]);
+        {error, Error} ->
+            publish_batch(T,{C,P,Q,R},[H|L])
+    end;
+publish_batch([],{C,P,Q,R},L) ->
+    L.
 
 subscribe('POST', Params) ->
     ClientId = get_value(<<"client_id">>, Params),
