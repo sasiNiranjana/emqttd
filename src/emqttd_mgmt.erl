@@ -436,8 +436,19 @@ client_list(ClientId, PageNo, PageSize) when ?EMPTY_KEY(ClientId) ->
     query_table(Qh, PageNo, PageSize, TotalNum);
 
 client_list(ClientId, PageNo, PageSize) ->
-    Fun = fun() -> ets:lookup(mqtt_client, ClientId) end,
-    lookup_table(Fun, PageNo, PageSize).
+    %Fun = fun() -> ets:lookup(mqtt_client, ClientId) end,
+    %lookup_table(Fun, PageNo, PageSize).
+    AllClients=findKeys(mqtt_client,ets:first(mqtt_client),[]),
+    FilterdClients=[X||X<-AllClients,filterParameterSize(ClientId,X),filterParameterLetters(ClientId,X)],
+    Fun = fun() -> [Z||[Z]<-[ets:lookup(mqtt_client, Y)||Y<-FilterdClients]] end,
+    emq_dashboard:lookup_table(Fun, PageNo, PageSize, fun row/1).
+
+findKeys(Table,Key,List) when Key=:='$end_of_table' -> List;
+findKeys(Table,Key,List) -> findKeys(Table,ets:next(Table,Key),[Key|List]).
+
+filterParameterSize(Parameter,Key) -> string:len(string:to_lower(binary_to_list(Parameter))) =< string:len(string:to_lower(binary_to_list(Key))).
+
+filterParameterLetters(Parameter,Key) -> string:to_lower(binary_to_list(Parameter)) =:= string:substr(string:to_lower(binary_to_list(Key)),1,string:len(string:to_lower(binary_to_list(Parameter)))).
 
 session_list(ClientId, PageNo, PageSize) when ?EMPTY_KEY(ClientId) ->
     TotalNum = lists:sum([ets:info(Tab, size) || Tab <- [mqtt_local_session]]),
