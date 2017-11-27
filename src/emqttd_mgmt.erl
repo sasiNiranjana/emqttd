@@ -441,7 +441,7 @@ client_list(ClientId, PageNo, PageSize) ->
     AllClients=findKeys(mqtt_client,ets:first(mqtt_client),[]),
     FilterdClients=[X||X<-AllClients,filterParameterSize(ClientId,X),filterParameterLetters(ClientId,X)],
     Fun = fun() -> [Z||[Z]<-[ets:lookup(mqtt_client, Y)||Y<-FilterdClients]] end,
-    emq_dashboard:lookup_table(Fun, PageNo, PageSize, fun row/1).
+    lookup_table(Fun, PageNo, PageSize).
 
 findKeys(Table,Key,List) when Key=:='$end_of_table' -> List;
 findKeys(Table,Key,List) -> findKeys(Table,ets:next(Table,Key),[Key|List]).
